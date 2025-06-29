@@ -69,6 +69,7 @@ I built this project to understand how Retrieval-Augmented Generation (RAG) work
 
 ---
 
+'''
 ## 📁 Project Structure
 
 pdf-chatbot/
@@ -81,7 +82,9 @@ pdf-chatbot/
 │ ├── llm.py # LLM query handling via Ollama
 │ ├── requirements.txt # Python dependencies
 │ ├── README.md # Project overview (this file)
-│ └── .gitignore # Files to exclude from Git
+│ └── .gitignore # Files to exclude from Git 
+
+'''
 
 
 ---

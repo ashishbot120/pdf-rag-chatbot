@@ -45,13 +45,19 @@ def get_all_chunks_from_db():
 
 
 def clear_vector_db():
-# Get all items (IDs are always included by default)
+    # Get all items (IDs are always included by default)
     all_items = collection.get()
     all_ids = all_items["ids"]
 
     # Delete them all
     if all_ids:
         collection.delete(ids=all_ids)
+        print(f"🧹 Cleared {len(all_ids)} chunks from vector DB.")
+        return len(all_ids)
+    else:
+        print("ℹ️ Vector DB was already empty.")
+        return 0
+
 
 
 

@@ -7,7 +7,8 @@ from llm import generate_answer, map_reduce_summary
 from vector_db import (
     store_chunks_in_vector_db,
     query_similar_chunk_from_vector_db,
-    get_all_chunks_from_db  # Optional
+    get_all_chunks_from_db,
+    clear_vector_db  # ✅ Import
 )
 
 st.set_page_config(page_title="PDF Chatbot", layout="wide")
@@ -28,19 +29,42 @@ if uploaded_file:
     with open("uploaded.pdf", "wb") as f:
         f.write(uploaded_file.read())
 
+     # ✅ Immediately clear previous data
+    cleared_count = clear_vector_db()
+    st.success(f"🧹 Cleared {cleared_count} previous chunks from the vector DB.")
+
+    remaining_chunks = get_all_chunks_from_db()
+    st.info(f"📦 Vector DB now contains {len(remaining_chunks)} chunks.")
+
+
+
     # PDF Preview
     with st.expander("📄 Live PDF Viewer"):
         pdf_viewer("uploaded.pdf")
 
-    # Extract and chunk
+    # Progress UI
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+
+    # Step 1: Extract text
+    status_text.text("📖 Extracting text from PDF...")
     text = extract_text_from_pdf("uploaded.pdf")
+    progress_bar.progress(30)
+
+    # Step 2: Chunking text
+    status_text.text("✂️ Chunking text with metadata...")
     chunks, metadatas = chunk_text_with_metadata(text, filename="uploaded.pdf")
+    progress_bar.progress(60)
+
+    # Step 3: Store new chunks
+    status_text.text("💾 Storing chunks in vector database...")
+    store_chunks_in_vector_db(chunks, metadatas)
+    progress_bar.progress(100)
 
     st.session_state.chunks = chunks
     st.session_state.metadatas = metadatas
 
-    store_chunks_in_vector_db(chunks, metadatas)
-
+    status_text.text("✅ PDF processed successfully.")
     st.success("✅ PDF processed and chunks stored!")
 
     # Show chunks

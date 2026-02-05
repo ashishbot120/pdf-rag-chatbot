@@ -1,14 +1,21 @@
 # Python
-venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# Environment
+# Virtual env
+venv/
 .env
 
-# OS files
+# OS
 .DS_Store
 
-# Logs / temp files
-*.log
-*.db
+# Streamlit
+.streamlit/
+
+# PDFs
+*.pdf
+
+# Qdrant / Chroma
+chroma_storage/

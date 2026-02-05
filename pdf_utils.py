@@ -1,40 +1,64 @@
-import fitz  # PyMuPDF
+from pdf2image import convert_from_bytes
 import pytesseract
-from pdf2image import convert_from_path
-from PIL import Image
-import re 
+import re
 import os
 
-# (Optional) Set tesseract path manually if not auto-detected
-# pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+# ------------------ FIX PATHS (IMPORTANT) ------------------
 
-def extract_text_from_pdf(pdf_path):
+# Tell pytesseract where tesseract.exe is
+pytesseract.pytesseract.tesseract_cmd = (
+    r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+)
+
+# Tell pdf2image where Poppler binaries are
+POPPLER_PATH = r"C:\poppler\poppler-24.08.0\Library\bin"
+
+# ------------------ OCR EXTRACTION ------------------
+
+def extract_text_from_pdf(pdf_bytes):
     text = ""
 
-    images = convert_from_path(pdf_path, dpi=300, poppler_path=r"C:\poppler\poppler-24.08.0\Library\bin")
+    images = convert_from_bytes(
+        pdf_bytes,
+        dpi=300,
+        poppler_path=POPPLER_PATH
+    )
+
     for img in images:
-        ocr_text = pytesseract.image_to_string(img, config="--psm 6")
+        ocr_text = pytesseract.image_to_string(
+            img,
+            config="--psm 6"
+        )
+
         if ocr_text.strip():
-            cleaned_text = re.sub(r"\s+", " ", ocr_text).strip()
-            text += "\n" + cleaned_text + "\n"
+            cleaned = re.sub(r"\s+", " ", ocr_text)
+            text += cleaned + "\n"
 
     return text.lower()
 
+# ------------------ CHUNKING ------------------
 
-
-    
-def chunk_text_with_metadata(text, filename, chunk_size=1000, overlap=200):
+def chunk_text_with_metadata(
+    text,
+    filename,
+    pdf_id,
+    chunk_size=1000,
+    overlap=200
+):
     chunks = []
     metadatas = []
+
     start = 0
     chunk_index = 0
 
     while start < len(text):
         end = min(start + chunk_size, len(text))
         chunk = text[start:end]
+
         chunks.append(chunk)
 
         metadatas.append({
+            "pdf_id": pdf_id,          # ✅ NEW
             "filename": filename,
             "chunk_index": chunk_index,
             "start_char": start,
@@ -45,5 +69,3 @@ def chunk_text_with_metadata(text, filename, chunk_size=1000, overlap=200):
         chunk_index += 1
 
     return chunks, metadatas
-
-        

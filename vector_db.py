@@ -1,66 +1,98 @@
-import chromadb
 import uuid
+import os
+from qdrant_client import QdrantClient
+from qdrant_client.models import (
+    PointStruct,
+    VectorParams,
+    Distance,
+    Filter,
+    FieldCondition,
+    MatchValue
+)
 from embedder import get_embeddings, get_embedding
+from qdrant_client.models import PayloadSchemaType
 
-# ✅ New ChromaDB client setup
-client = chromadb.PersistentClient(path="chroma_storage")
-collection = client.get_or_create_collection(name="pdf_chunks")
 
+COLLECTION_NAME = "pdf_chunks"
+
+client = QdrantClient(
+    url=os.getenv("QDRANT_URL"),
+    api_key=os.getenv("QDRANT_API_KEY")
+)
+
+# ------------------ COLLECTION ------------------
+def ensure_collection():
+    existing = [c.name for c in client.get_collections().collections]
+
+    if COLLECTION_NAME not in existing:
+        client.create_collection(
+            collection_name=COLLECTION_NAME,
+            vectors_config=VectorParams(
+                size=384,
+                distance=Distance.COSINE
+            )
+        )
+
+        # 🔑 CREATE PAYLOAD INDEX FOR FILTERING
+        client.create_payload_index(
+            collection_name=COLLECTION_NAME,
+            field_name="pdf_id",
+            field_schema=PayloadSchemaType.KEYWORD
+        )
+
+# ------------------ STORE ------------------
 def store_chunks_in_vector_db(chunks, metadatas):
-    if not chunks:
-        print("No chunks to store")
-        return
-
-    assert len(chunks) == len(metadatas), "Mismatch between chunks and metadata"
-
-    ids = [str(uuid.uuid4()) for _ in chunks]
-
+    ensure_collection()
     embeddings = get_embeddings(chunks)
 
-    collection.add(
-        ids=ids,
-        documents=chunks,
-        embeddings=embeddings,
-        metadatas=metadatas
-    )
+    points = []
+    for i in range(len(chunks)):
+        points.append(
+            PointStruct(
+                id=str(uuid.uuid4()),
+                vector=embeddings[i],
+                payload={
+                    "text": chunks[i],
+                    **metadatas[i]
+                }
+            )
+        )
 
-    #print(f"✅ Stored {len(chunks)} chunks with metadata in vector DB")
+    client.upsert(collection_name=COLLECTION_NAME, points=points)
 
-
-def query_similar_chunk_from_vector_db(question, top_k=1):
+# ------------------ QUERY ------------------
+def query_similar_chunk_from_vector_db(question, pdf_id, top_k=3):
+    ensure_collection()
     query_embedding = get_embedding(question)
-    result = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=top_k,
-        include=["documents", "metadatas"]
+
+    hits = client.search(
+        collection_name=COLLECTION_NAME,
+        query_vector=query_embedding,
+        limit=top_k,
+        query_filter=Filter(
+            must=[
+                FieldCondition(
+                    key="pdf_id",
+                    match=MatchValue(value=pdf_id)
+                )
+            ]
+        )
     )
-    if result["documents"]:
-        return result["documents"][0], result["metadatas"][0]
-    else:
+
+    if not hits:
         return [], []
 
-def get_all_chunks_from_db():
-    results = collection.get(include=["documents"])
-    return results["documents"]
+    docs = [hit.payload["text"] for hit in hits]
+    metas = [
+        {k: v for k, v in hit.payload.items() if k != "text"}
+        for hit in hits
+    ]
 
+    return docs, metas
 
+# ------------------ CLEAR ------------------
 def clear_vector_db():
-    # Get all items (IDs are always included by default)
-    all_items = collection.get()
-    all_ids = all_items["ids"]
-
-    # Delete them all
-    if all_ids:
-        collection.delete(ids=all_ids)
-        print(f"🧹 Cleared {len(all_ids)} chunks from vector DB.")
-        return len(all_ids)
-    else:
-        print("ℹ️ Vector DB was already empty.")
-        return 0
-
-
-
-
-def get_all_chunks_from_db():
-    result = collection.get()
-    return result.get("documents", [])
+    try:
+        client.delete_collection(COLLECTION_NAME)
+    except Exception:
+        pass

@@ -6,9 +6,8 @@ import base64
 load_dotenv()
 
 # ------------------ IMPORTS ------------------
-from streamlit_pdf_viewer import pdf_viewer
+
 from pdf_utils import extract_text_from_pdf, chunk_text_with_metadata
-from embedder import get_embedding
 from llm import generate_answer, map_reduce_summary
 from vector_db import (
     store_chunks_in_vector_db,
@@ -58,7 +57,17 @@ if uploaded_file:
 
     # ------------------ PDF VIEWER ------------------
     with st.expander("📄 Preview PDF"):
-        pdf_viewer(pdf_bytes)
+        def show_pdf(pdf_bytes):
+            base64_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
+            pdf_display = f"""
+            <iframe 
+                src="data:application/pdf;base64,{base64_pdf}" 
+                width="100%" 
+                height="600px"
+                type="application/pdf">
+            </iframe>
+            """
+            st.write(pdf_display, unsafe_allow_html=True)  # show_pdf(pdf_bytes)
 
     # ------------------ PROCESSING UI ------------------
     progress = st.progress(0)

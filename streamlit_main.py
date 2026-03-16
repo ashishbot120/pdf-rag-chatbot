@@ -6,7 +6,6 @@ import base64
 load_dotenv()
 
 # ------------------ IMPORTS ------------------
-
 from pdf_utils import extract_text_from_pdf, chunk_text_with_metadata
 from llm import generate_answer, map_reduce_summary
 from vector_db import (
@@ -67,7 +66,9 @@ if uploaded_file:
                 type="application/pdf">
             </iframe>
             """
-            st.write(pdf_display, unsafe_allow_html=True)  # show_pdf(pdf_bytes)
+            st.write(pdf_display, unsafe_allow_html=True)
+
+        show_pdf(pdf_bytes)
 
     # ------------------ PROCESSING UI ------------------
     progress = st.progress(0)
@@ -130,27 +131,32 @@ if st.session_state.chunks:
 
                 st.markdown("### 📋 Answer (Full Document)")
                 st.write(answer)
-
-                st.caption(
-                    f"Used all {len(st.session_state.chunks)} chunks"
-                )
+                st.caption(f"Used all {len(st.session_state.chunks)} chunks")
 
             # 🎯 RETRIEVAL MODE
             else:
-                best_chunks, metadatas = query_similar_chunk_from_vector_db(
-                question=question,
-                pdf_id=st.session_state.pdf_id,
-                top_k=1
+                best_chunks, retrieved_metadatas = query_similar_chunk_from_vector_db(
+                    question=question,
+                    pdf_id=st.session_state.pdf_id,
+                    top_k=5
                 )
 
                 if best_chunks:
-                    chunk = best_chunks[0]
-                    metadata = metadatas[0]
+                    # ✅ Always prepend first chunk (contains name/contact info)
+                    first_chunk = st.session_state.chunks[0]
+                    all_context_chunks = [first_chunk] + [
+                        c for c in best_chunks if c != first_chunk
+                    ]
+
+                    # ✅ Combine all chunks as context for LLM
+                    combined_context = "\n\n".join(all_context_chunks)
 
                     prompt = (
+                        "You are a helpful assistant. "
                         "Answer the question using ONLY the context below.\n\n"
-                        f"Context:\n{chunk}\n\n"
-                        f"Question:\n{question}"
+                        f"Context:\n{combined_context}\n\n"
+                        f"Question:\n{question}\n\n"
+                        "Answer:"
                     )
 
                     answer = generate_answer(prompt)
@@ -158,13 +164,18 @@ if st.session_state.chunks:
                     st.markdown("### ✅ Answer")
                     st.write(answer)
 
-                    st.markdown("#### 🔍 Source")
-                    st.write(f"📄 File: `{metadata['filename']}`")
-                    st.write(
-                        f"🔢 Characters: "
-                        f"{metadata['start_char']} – {metadata['end_char']}"
-                    )
-                    st.code(chunk[:400])
+                    st.markdown("#### 🔍 Sources Used")
+                    for i, (chunk, meta) in enumerate(
+                        zip(best_chunks, retrieved_metadatas)
+                    ):
+                        with st.expander(
+                            f"Chunk {i+1} — chars "
+                            f"{meta['start_char']}–{meta['end_char']}"
+                        ):
+                            st.write(f"📄 File: `{meta['filename']}`")
+                            st.code(chunk[:400])
 
                 else:
-                    st.warning("❌ No relevant chunk found. Try full document mode.")
+                    st.warning(
+                        "❌ No relevant chunk found. Try full document mode."
+                    )

@@ -16,8 +16,8 @@ from qdrant_client.models import PayloadSchemaType
 COLLECTION_NAME = "pdf_chunks"
 
 client = QdrantClient(
-    url=os.getenv("QDRANT_URL"),
-    api_key=os.getenv("QDRANT_API_KEY")
+    url=os.getenv("QDRANT_URL", "").strip(),
+    api_key=os.getenv("QDRANT_API_KEY", "").strip()
 )
 
 # ------------------ COLLECTION ------------------

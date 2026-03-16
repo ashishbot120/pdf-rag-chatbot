@@ -13,7 +13,7 @@ client = OpenAI(
 
 MODEL_NAME = os.getenv(
     "OPENROUTER_MODEL",
-    "mistralai/mistral-7b-instruct"
+    "google/gemma-3-4b-it:free"
 )
 
 # ------------------ BASIC ANSWER ------------------

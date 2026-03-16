@@ -39,6 +39,7 @@ def upload_pdf(file_bytes: bytes, filename: str) -> dict:
         return {
             "pdf_id": pdf_id,
             "file_url": file_url,
+            "url": file_url,
             "storage_path": storage_path
         }
 

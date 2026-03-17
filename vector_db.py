@@ -61,13 +61,14 @@ def store_chunks_in_vector_db(chunks, metadatas):
     client.upsert(collection_name=COLLECTION_NAME, points=points)
 
 # ------------------ QUERY ------------------
-def query_similar_chunk_from_vector_db(question, pdf_id, top_k=3):
+def query_similar_chunk_from_vector_db(question, pdf_id, top_k=5):
     ensure_collection()
     query_embedding = get_embedding(question)
 
-    hits = client.search(
+    # ✅ NEW: use query_points instead of search
+    results = client.query_points(
         collection_name=COLLECTION_NAME,
-        query_vector=query_embedding,
+        query=query_embedding,
         limit=top_k,
         query_filter=Filter(
             must=[
@@ -78,6 +79,8 @@ def query_similar_chunk_from_vector_db(question, pdf_id, top_k=3):
             ]
         )
     )
+
+    hits = results.points  # ✅ extract points from result
 
     if not hits:
         return [], []
